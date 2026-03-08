@@ -86,13 +86,12 @@ pub fn resolve_config_path(cli_arg: Option<String>) -> Result<PathBuf> {
         return Ok(PathBuf::from(path));
     }
 
-    // XDG config directory
-    let config_dir = std::env::var("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            PathBuf::from(home).join(".config")
-        })
+    // Platform config directory via dirs crate
+    // Linux: ~/.config/vigil-tui/
+    // macOS: ~/Library/Application Support/vigil-tui/
+    // Windows: C:\Users\X\AppData\Roaming\vigil-tui\
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?
         .join("vigil-tui");
 
     let config_path = config_dir.join("config.toml");
