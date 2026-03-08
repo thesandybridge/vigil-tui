@@ -33,6 +33,7 @@ pub struct ZoneConfig {
     pub height: u16,
     // Rows mode fields
     pub row: Option<u16>,
+    pub col: Option<u16>,
     pub min_width: Option<u16>,
     pub min_height: Option<u16>,
     pub config: Option<toml::Value>,
@@ -87,7 +88,9 @@ impl AppConfig {
                 );
             }
         } else {
-            // Rows mode: validate column widths within each row group
+            // Rows mode: validate column widths within each row group.
+            // Group zones by row, then by col within each row.
+            // Sum widths per column (not per zone) and check <= 100%.
             let mut row_groups: std::collections::HashMap<u16, Vec<&ZoneConfig>> =
                 std::collections::HashMap::new();
             let mut auto_row = 0u16;
@@ -99,8 +102,22 @@ impl AppConfig {
                 row_groups.entry(row).or_default().push(zone);
             }
             for (row, zones) in &row_groups {
-                if zones.len() > 1 {
-                    let total_width: u16 = zones.iter().map(|z| z.width).sum();
+                // Group zones within this row by col.
+                // Zones without col each get a unique auto column ID.
+                let mut col_widths: std::collections::HashMap<u16, u16> =
+                    std::collections::HashMap::new();
+                let mut auto_col = 10000u16;
+                for zone in zones {
+                    let col_id = zone.col.unwrap_or_else(|| {
+                        auto_col += 1;
+                        auto_col
+                    });
+                    // Use the first non-zero width seen for this column
+                    let w = if zone.width == 0 { 0 } else { zone.width };
+                    col_widths.entry(col_id).or_insert(w);
+                }
+                let total_width: u16 = col_widths.values().sum();
+                if col_widths.len() > 1 {
                     anyhow::ensure!(
                         total_width <= 100,
                         "Row {} column widths sum to {}%, must be <= 100%",

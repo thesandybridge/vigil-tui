@@ -226,7 +226,7 @@ impl super::Widget for WeatherWidget {
                 let temp_unit = if data.unit_celsius { "\u{00B0}C" } else { "\u{00B0}F" };
                 let wind_unit = if data.wind_unit_kmh { "km/h" } else { "mph" };
 
-                let lines = vec![
+                let mut lines = vec![
                     Line::from(Span::styled(
                         format!("{icon} {:.1}{temp_unit}", data.temperature),
                         Style::default().fg(theme.accent),
@@ -242,7 +242,18 @@ impl super::Widget for WeatherWidget {
                         Style::default().fg(theme.fg),
                     )),
                 ];
-                let paragraph = Paragraph::new(lines).block(block);
+                // Vertical centering: pad top with empty lines
+                let inner_h = area.height.saturating_sub(2) as usize; // subtract borders
+                let content_h = lines.len();
+                if inner_h > content_h {
+                    let pad = (inner_h - content_h) / 2;
+                    for _ in 0..pad {
+                        lines.insert(0, Line::from(""));
+                    }
+                }
+                let paragraph = Paragraph::new(lines)
+                    .block(block)
+                    .alignment(Alignment::Center);
                 frame.render_widget(paragraph, area);
             }
         }

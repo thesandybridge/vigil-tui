@@ -5,11 +5,14 @@ A configurable terminal dashboard built with Rust and [ratatui](https://ratatui.
 ![Rust](https://img.shields.io/badge/rust-2024-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+![vigil-tui screenshot](assets/screenshot.png)
+
 ## Features
 
 - **Widget system** — trait-based architecture, easy to extend
 - **Built-in widgets** — clock (ASCII art), weather, date, system stats, text
 - **Two layout modes** — absolute (percentage positioning) or rows (stacked, flex-like)
+- **Column stacking** — stack multiple zones vertically within a row column using `col`
 - **Theme presets** — gruvbox, catppuccin-mocha, catppuccin-latte, nord, tokyo-night, dracula, solarized-dark
 - **Custom themes** — define your own colors and border style
 - **TOML config** — named zones with per-widget configuration
@@ -92,6 +95,46 @@ height = 3
   [zones.config]
   content = "Stay focused. Stay vigilant."
 ```
+
+### Column Stacking
+
+Zones with the same `row` and `col` value stack vertically within that column. This lets you create layouts where one column has multiple smaller zones while another spans the full row height:
+
+```
++-----------+-----------+
+|  widget1  |           |
++-----------+  widget3  |
+|  widget2  |           |
++-----------+-----------+
+```
+
+```toml
+[[zones]]
+id = "widget1"
+widget = "clock"
+row = 1
+col = 1
+width = 50
+height = 8
+
+[[zones]]
+id = "widget2"
+widget = "text"
+row = 1
+col = 1
+width = 50
+height = 5
+
+[[zones]]
+id = "widget3"
+widget = "system"
+row = 1
+col = 2
+width = 50
+height = 13
+```
+
+Zones without `col` each get their own column automatically (backward compatible).
 
 ## Widgets
 

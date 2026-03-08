@@ -55,6 +55,37 @@ widget = "system"
 row = 2
 width = 33
 
+# --- Column Stacking ---
+# Zones with the same 'row' and 'col' stack vertically within that column.
+# Example: two zones stacked on the left, one tall zone on the right.
+#
+# [[zones]]
+# id = "top-left"
+# widget = "clock"
+# row = 3
+# col = 1
+# width = 50
+# height = 8
+#
+# [[zones]]
+# id = "bottom-left"
+# widget = "text"
+# row = 3
+# col = 1
+# width = 50
+# height = 5
+#
+#   [zones.config]
+#   content = "Stacked below clock"
+#
+# [[zones]]
+# id = "right-tall"
+# widget = "system"
+# row = 3
+# col = 2
+# width = 50
+# height = 13
+
 [[zones]]
 id = "quote"
 widget = "text"
