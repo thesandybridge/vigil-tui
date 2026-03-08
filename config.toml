@@ -1,0 +1,68 @@
+# Theme: use a preset name, a custom [theme] block, or omit for terminal defaults.
+# Presets: gruvbox, catppuccin-mocha, catppuccin-latte, nord, tokyo-night, dracula, solarized-dark
+theme = "catppuccin-mocha"
+
+# Icons: requires Nerd Font. Set to false for plain text fallback.
+# icons = true
+
+# Or full custom theme:
+# [theme]
+# fg = "#cdd6f4"
+# bg = "#1e1e2e"
+# accent = "#89b4fa"
+# dim = "#585b70"
+# border = "rounded"
+
+[[zones]]
+id = "clock"
+widget = "clock"
+x = 0
+y = 0
+width = 60
+height = 40
+
+  [zones.config]
+  format = "12hr"
+
+[[zones]]
+id = "weather"
+widget = "weather"
+x = 60
+y = 0
+width = 40
+height = 20
+
+  [zones.config]
+  latitude = 40.7128
+  longitude = -74.0060
+  units = "fahrenheit"
+
+[[zones]]
+id = "date"
+widget = "date"
+x = 0
+y = 40
+width = 60
+height = 15
+
+  [zones.config]
+  format = "%A, %B %d, %Y"
+
+[[zones]]
+id = "stats"
+widget = "system"
+x = 60
+y = 20
+width = 40
+height = 20
+
+[[zones]]
+id = "quote"
+widget = "text"
+x = 0
+y = 55
+width = 60
+height = 45
+
+  [zones.config]
+  content = "Stay focused. Stay vigilant."
