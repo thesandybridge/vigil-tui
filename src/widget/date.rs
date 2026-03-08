@@ -1,6 +1,8 @@
 use anyhow::Result;
-use ratatui::layout::Rect;
+use chrono::Local;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
@@ -23,15 +25,29 @@ impl DateWidget {
 
 impl super::Widget for DateWidget {
     fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
+        let now = Local::now();
+        let date_str = now.format(&self.format).to_string();
+
+        let inner_height = area.height.saturating_sub(2);
+        let pad_top = inner_height.saturating_sub(1) / 2;
+
+        let mut lines: Vec<Line> = Vec::new();
+        for _ in 0..pad_top {
+            lines.push(Line::from(""));
+        }
+        lines.push(Line::from(date_str));
+
         let block = Block::default()
             .title(" Date ")
             .borders(Borders::ALL)
             .border_type(theme.border_type())
             .border_style(Style::default().fg(theme.dim));
-        let text = format!("Date [{}]", self.format);
-        let paragraph = Paragraph::new(text)
+
+        let paragraph = Paragraph::new(lines)
             .block(block)
+            .alignment(Alignment::Center)
             .style(Style::default().fg(theme.fg));
+
         frame.render_widget(paragraph, area);
     }
 }
