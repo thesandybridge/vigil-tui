@@ -119,6 +119,10 @@ async fn run(
                 Event::Mouse(mouse) => {
                     if matches!(mouse.kind, MouseEventKind::Down(crossterm::event::MouseButton::Left)) {
                         app.focus_at(mouse.column, mouse.row);
+                        if let Err(e) = app.launch_focused() {
+                            app.set_config_error(format!("launch error: {e}"));
+                        }
+                        terminal.clear()?;
                     }
                 }
                 _ => {}
