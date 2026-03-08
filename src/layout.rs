@@ -211,31 +211,33 @@ pub fn check_terminal_size(
     let mut required_w: u16 = 0;
     let mut required_h: u16 = 0;
 
+    // Absolute mode: per-zone percentage formula
     for zone in zones {
-        match &zone.rect {
-            ComputedRect::Percent { pct_w, pct_h, .. } => {
-                if *pct_w > 0 {
-                    let needed_w = (zone.min_w as u32 * 100 / *pct_w as u32) as u16;
-                    required_w = required_w.max(needed_w);
-                }
-                if *pct_h > 0 {
-                    let needed_h = (zone.min_h as u32 * 100 / *pct_h as u32) as u16;
-                    required_h = required_h.max(needed_h);
-                }
+        if let ComputedRect::Percent { pct_w, pct_h, .. } = &zone.rect {
+            if *pct_w > 0 {
+                let needed_w = (zone.min_w as u32 * 100 / *pct_w as u32) as u16;
+                required_w = required_w.max(needed_w);
             }
-            ComputedRect::Fixed { w, .. } => {
-                // Width is percentage-based
-                if *w > 0 {
-                    let needed_w = (zone.min_w as u32 * 100 / *w as u32) as u16;
-                    required_w = required_w.max(needed_w);
-                }
-                // Height is fixed chars — just need enough total height
-                // (handled by summing all row heights)
+            if *pct_h > 0 {
+                let needed_h = (zone.min_h as u32 * 100 / *pct_h as u32) as u16;
+                required_h = required_h.max(needed_h);
             }
         }
     }
 
-    // For rows mode, compute total required height from fixed rows
+    // Rows mode: sum min_w per row (zones at same y are columns in the same row)
+    let mut row_min_widths: std::collections::HashMap<u16, u16> =
+        std::collections::HashMap::new();
+    for zone in zones {
+        if let ComputedRect::Fixed { y, .. } = &zone.rect {
+            *row_min_widths.entry(*y).or_insert(0) += zone.min_w;
+        }
+    }
+    for total_min_w in row_min_widths.values() {
+        required_w = required_w.max(*total_min_w);
+    }
+
+    // Rows mode: required height is the bottom edge of the lowest zone
     let total_fixed_h: u16 = zones
         .iter()
         .filter_map(|z| match &z.rect {
