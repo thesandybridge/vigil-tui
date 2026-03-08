@@ -8,8 +8,8 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 use tokio::task::JoinHandle;
 
-use crate::config::AppConfig;
-use crate::layout::{check_terminal_size, ZoneLayout};
+use crate::config::{AppConfig, LayoutMode, ZoneConfig};
+use crate::layout::{self, check_terminal_size, ZoneLayout};
 use crate::theme::{resolve_theme, Theme};
 use crate::widget::{self, Widget};
 
@@ -21,38 +21,59 @@ struct ZoneEntry {
 pub struct App {
     config_path: String,
     zones: Vec<ZoneEntry>,
+    zone_configs: Vec<ZoneConfig>,
     theme: Theme,
     update_tasks: Vec<JoinHandle<()>>,
+    layout_mode: LayoutMode,
 }
 
 impl App {
     pub fn from_config(config_path: &str) -> Result<Self> {
         let config = AppConfig::load(Path::new(config_path))?;
         let theme = resolve_theme(&config.theme);
+        let layout_mode = config.layout;
 
-        let mut zones = Vec::new();
+        let mut widgets: Vec<Box<dyn Widget>> = Vec::new();
         let mut update_tasks = Vec::new();
 
         for zone_cfg in &config.zones {
             let (widget, handle) =
                 widget::create_widget(&zone_cfg.widget, zone_cfg.config.as_ref())?;
-            let layout = ZoneLayout::from_config(zone_cfg, widget.min_size());
             if let Some(h) = handle {
                 update_tasks.push(h);
             }
-            zones.push(ZoneEntry { layout, widget });
+            widgets.push(widget);
         }
+
+        let layouts = match layout_mode {
+            LayoutMode::Absolute => layout::build_absolute(&config.zones, &widgets),
+            LayoutMode::Rows => layout::build_rows(&config.zones, &widgets, 40),
+        };
+
+        let zones = layouts
+            .into_iter()
+            .zip(widgets)
+            .map(|(layout, widget)| ZoneEntry { layout, widget })
+            .collect();
 
         Ok(Self {
             config_path: config_path.to_string(),
+            zone_configs: config.zones,
             zones,
             theme,
             update_tasks,
+            layout_mode,
         })
     }
 
     pub fn draw(&self, frame: &mut Frame) {
         let size = frame.area();
+
+        if self.layout_mode == LayoutMode::Rows {
+            self.draw_rows(frame, size);
+            return;
+        }
+
         let layouts: Vec<_> = self.zones.iter().map(|z| &z.layout).collect();
 
         if let Some((req_w, req_h)) = check_terminal_size(&layouts, size.width, size.height) {
@@ -60,15 +81,42 @@ impl App {
             return;
         }
 
-        // Fill background
         let bg_block = Block::default().style(Style::default().bg(self.theme.bg));
         frame.render_widget(bg_block, size);
 
         for entry in &self.zones {
             let area = entry.layout.to_rect(size.width, size.height);
-
             if let Some(err) = entry.widget.error() {
                 self.draw_error(frame, area, &entry.layout.id, &err);
+            } else {
+                entry.widget.draw(frame, area, &self.theme);
+            }
+        }
+    }
+
+    fn draw_rows(&self, frame: &mut Frame, size: Rect) {
+        // Build min-size proxies for layout computation
+        let proxies: Vec<Box<dyn Widget>> = self
+            .zones
+            .iter()
+            .map(|z| -> Box<dyn Widget> { Box::new(MinSizeProxy(z.widget.min_size())) })
+            .collect();
+
+        let layouts = layout::build_rows(&self.zone_configs, &proxies, size.height);
+
+        let layout_refs: Vec<&ZoneLayout> = layouts.iter().collect();
+        if let Some((req_w, req_h)) = check_terminal_size(&layout_refs, size.width, size.height) {
+            self.draw_too_small(frame, size, req_w, req_h);
+            return;
+        }
+
+        let bg_block = Block::default().style(Style::default().bg(self.theme.bg));
+        frame.render_widget(bg_block, size);
+
+        for (entry, layout) in self.zones.iter().zip(layouts.iter()) {
+            let area = layout.to_rect(size.width, size.height);
+            if let Some(err) = entry.widget.error() {
+                self.draw_error(frame, area, &layout.id, &err);
             } else {
                 entry.widget.draw(frame, area, &self.theme);
             }
@@ -130,8 +178,10 @@ impl App {
         self.abort_update_tasks();
         let new_app = App::from_config(&self.config_path)?;
         self.zones = new_app.zones;
+        self.zone_configs = new_app.zone_configs;
         self.theme = new_app.theme;
         self.update_tasks = new_app.update_tasks;
+        self.layout_mode = new_app.layout_mode;
         Ok(())
     }
 
@@ -139,5 +189,15 @@ impl App {
         for handle in self.update_tasks.drain(..) {
             handle.abort();
         }
+    }
+}
+
+/// Proxy that provides min_size for layout computation without needing real widgets.
+struct MinSizeProxy((u16, u16));
+
+impl Widget for MinSizeProxy {
+    fn draw(&self, _frame: &mut Frame, _area: Rect, _theme: &Theme) {}
+    fn min_size(&self) -> (u16, u16) {
+        self.0
     }
 }

@@ -22,17 +22,39 @@ pub struct CustomTheme {
 pub struct ZoneConfig {
     pub id: String,
     pub widget: String,
+    // Absolute mode fields (layout = "absolute" or omitted)
+    #[serde(default)]
     pub x: u16,
+    #[serde(default)]
     pub y: u16,
+    #[serde(default)]
     pub width: u16,
+    #[serde(default)]
     pub height: u16,
+    // Rows mode fields
+    pub row: Option<u16>,
     pub min_width: Option<u16>,
     pub min_height: Option<u16>,
     pub config: Option<toml::Value>,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum LayoutMode {
+    Absolute,
+    Rows,
+}
+
+impl Default for LayoutMode {
+    fn default() -> Self {
+        Self::Absolute
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
+    #[serde(default)]
+    pub layout: LayoutMode,
     pub theme: Option<ThemeConfig>,
     pub icons: Option<bool>,
     pub zones: Vec<ZoneConfig>,
@@ -49,19 +71,44 @@ impl AppConfig {
     }
 
     fn validate(&self) -> Result<()> {
-        for zone in &self.zones {
-            anyhow::ensure!(
-                zone.width > 0 && zone.height > 0,
-                "Zone '{}' has zero width or height",
-                zone.id
-            );
-            anyhow::ensure!(
-                zone.x + zone.width <= 100 && zone.y + zone.height <= 100,
-                "Zone '{}' exceeds 100% bounds (x+w={}, y+h={})",
-                zone.id,
-                zone.x + zone.width,
-                zone.y + zone.height
-            );
+        if self.layout == LayoutMode::Absolute {
+            for zone in &self.zones {
+                anyhow::ensure!(
+                    zone.width > 0 && zone.height > 0,
+                    "Zone '{}' has zero width or height",
+                    zone.id
+                );
+                anyhow::ensure!(
+                    zone.x + zone.width <= 100 && zone.y + zone.height <= 100,
+                    "Zone '{}' exceeds 100% bounds (x+w={}, y+h={})",
+                    zone.id,
+                    zone.x + zone.width,
+                    zone.y + zone.height
+                );
+            }
+        } else {
+            // Rows mode: validate column widths within each row group
+            let mut row_groups: std::collections::HashMap<u16, Vec<&ZoneConfig>> =
+                std::collections::HashMap::new();
+            let mut auto_row = 0u16;
+            for zone in &self.zones {
+                let row = zone.row.unwrap_or_else(|| {
+                    auto_row += 1;
+                    auto_row
+                });
+                row_groups.entry(row).or_default().push(zone);
+            }
+            for (row, zones) in &row_groups {
+                if zones.len() > 1 {
+                    let total_width: u16 = zones.iter().map(|z| z.width).sum();
+                    anyhow::ensure!(
+                        total_width <= 100,
+                        "Row {} column widths sum to {}%, must be <= 100%",
+                        row,
+                        total_width
+                    );
+                }
+            }
         }
         Ok(())
     }
@@ -76,20 +123,15 @@ const DEFAULT_CONFIG: &str = include_str!("../config.example.toml");
 
 /// Returns the config path, resolving in order:
 /// 1. Explicit CLI argument
-/// 2. $XDG_CONFIG_HOME/vigil-tui/config.toml (or ~/.config/vigil-tui/config.toml)
+/// 2. Platform config dir (via dirs crate)
 /// 3. ./config.toml (legacy fallback)
 ///
-/// If the XDG path doesn't exist, creates the directory and writes the default config.
+/// On first run, creates config dir and writes the default config.
 pub fn resolve_config_path(cli_arg: Option<String>) -> Result<PathBuf> {
-    // Explicit path from CLI
     if let Some(path) = cli_arg {
         return Ok(PathBuf::from(path));
     }
 
-    // Platform config directory via dirs crate
-    // Linux: ~/.config/vigil-tui/
-    // macOS: ~/Library/Application Support/vigil-tui/
-    // Windows: C:\Users\X\AppData\Roaming\vigil-tui\
     let config_dir = dirs::config_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?
         .join("vigil-tui");
@@ -100,13 +142,11 @@ pub fn resolve_config_path(cli_arg: Option<String>) -> Result<PathBuf> {
         return Ok(config_path);
     }
 
-    // Legacy: check ./config.toml
     let local = PathBuf::from("config.toml");
     if local.exists() {
         return Ok(local);
     }
 
-    // First run: create default config in XDG dir
     std::fs::create_dir_all(&config_dir)
         .with_context(|| format!("Failed to create config dir: {}", config_dir.display()))?;
     std::fs::write(&config_path, DEFAULT_CONFIG)
