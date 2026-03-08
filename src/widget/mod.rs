@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use ratatui::layout::Rect;
 use ratatui::Frame;
@@ -21,16 +19,12 @@ pub trait Widget: Send + Sync {
     }
 }
 
-/// Widgets that fetch data asynchronously implement this.
-pub trait Updatable: Send + Sync {
-    fn update(&mut self) -> impl std::future::Future<Output = Result<()>> + Send;
-    fn refresh_interval(&self) -> Duration;
-}
+pub type CreateResult = (Box<dyn Widget>, Option<JoinHandle<()>>);
 
 pub fn create_widget(
     widget_type: &str,
     config: Option<&toml::Value>,
-) -> Result<(Box<dyn Widget>, Option<JoinHandle<()>>)> {
+) -> Result<CreateResult> {
     match widget_type {
         "clock" => Ok((Box::new(clock::ClockWidget::new(config)?), None)),
         "weather" => {

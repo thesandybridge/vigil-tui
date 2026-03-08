@@ -53,7 +53,7 @@ impl SystemWidget {
                     mem_total: sys.total_memory(),
                 };
                 {
-                    let mut s = state.lock().unwrap();
+                    let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
                     *s = data;
                 }
                 tokio::time::sleep(Duration::from_secs(2)).await;
@@ -100,7 +100,7 @@ fn render_bar<'a>(pct: f32, width: u16, filled_color: Color, empty_color: Color)
 impl super::Widget for SystemWidget {
     fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
         let (cpu_usage, mem_used, mem_total) = {
-            let s = self.state.lock().unwrap();
+            let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (s.cpu_usage, s.mem_used, s.mem_total)
         };
 

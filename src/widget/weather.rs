@@ -113,7 +113,7 @@ impl WeatherWidget {
                 .await;
 
                 {
-                    let mut s = state.lock().unwrap();
+                    let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
                     match result {
                         Ok(api) => {
                             s.result = FetchResult::Data(WeatherData {
@@ -148,7 +148,7 @@ fn weather_icon(code: u8) -> &'static str {
         66 | 67 => "\u{1F327}",  // Freezing rain
         71 | 73 | 75 => "\u{2744}", // Snow
         77 => "\u{2744}",        // Snow grains
-        80 | 81 | 82 => "\u{1F327}", // Rain showers
+        80..=82 => "\u{1F327}", // Rain showers
         85 | 86 => "\u{2744}",   // Snow showers
         95 => "\u{26C8}",        // Thunderstorm
         96 | 99 => "\u{26C8}",   // Thunderstorm + hail
@@ -190,7 +190,7 @@ fn weather_description(code: u8) -> &'static str {
 
 impl super::Widget for WeatherWidget {
     fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
-        let snapshot = { self.state.lock().unwrap().clone() };
+        let snapshot = { self.state.lock().unwrap_or_else(|e| e.into_inner()).clone() };
 
         let block = Block::default()
             .title(" Weather ")
@@ -243,12 +243,4 @@ impl super::Widget for WeatherWidget {
         }
     }
 
-    fn error(&self) -> Option<String> {
-        let state = self.state.lock().unwrap();
-        if let FetchResult::Error(ref msg) = state.result {
-            Some(msg.clone())
-        } else {
-            None
-        }
-    }
 }

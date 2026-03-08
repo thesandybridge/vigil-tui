@@ -23,15 +23,12 @@ pub struct App {
     zones: Vec<ZoneEntry>,
     theme: Theme,
     update_tasks: Vec<JoinHandle<()>>,
-    #[allow(dead_code)]
-    use_icons: bool,
 }
 
 impl App {
     pub fn from_config(config_path: &str) -> Result<Self> {
         let config = AppConfig::load(Path::new(config_path))?;
         let theme = resolve_theme(&config.theme);
-        let use_icons = config.use_icons();
 
         let mut zones = Vec::new();
         let mut update_tasks = Vec::new();
@@ -51,7 +48,6 @@ impl App {
             zones,
             theme,
             update_tasks,
-            use_icons,
         })
     }
 
@@ -136,7 +132,6 @@ impl App {
         self.zones = new_app.zones;
         self.theme = new_app.theme;
         self.update_tasks = new_app.update_tasks;
-        self.use_icons = new_app.use_icons;
         Ok(())
     }
 

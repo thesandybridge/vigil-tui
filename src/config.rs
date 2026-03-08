@@ -66,6 +66,7 @@ impl AppConfig {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn use_icons(&self) -> bool {
         self.icons.unwrap_or(true)
     }
