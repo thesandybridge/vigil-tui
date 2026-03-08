@@ -13,7 +13,7 @@ pub mod weather;
 
 /// All widgets implement this for rendering.
 pub trait Widget: Send + Sync {
-    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme);
+    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme, is_focused: bool);
     fn error(&self) -> Option<String> {
         None
     }

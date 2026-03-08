@@ -19,10 +19,20 @@ theme = "catppuccin-mocha"
 # Omit 'height' to fill remaining space.
 # 'width' is always a percentage (for columns within a row).
 
+# --- Navigation & Targets ---
+# Use h/j/k/l to move focus between zones, mouse click to focus directly.
+# Press Enter to launch a zone's target.
+# Targets starting with http:// or https:// open in a browser.
+# Set mode = "browser" to force browser opening (e.g. for URLs without scheme).
+# All other targets run in the terminal (vigil suspends and resumes after).
+# Example: target = "btop" (terminal), target = "https://github.com" (browser)
+# Example: target = "wttr.in", mode = "browser" (force browser for non-URL)
+
 [[zones]]
 id = "clock"
 widget = "clock"
 height = 13
+# target = "btop"
 
   [zones.config]
   format = "12hr"   # "12hr" or "24hr"

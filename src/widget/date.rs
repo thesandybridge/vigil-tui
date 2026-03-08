@@ -24,7 +24,7 @@ impl DateWidget {
 }
 
 impl super::Widget for DateWidget {
-    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
+    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme, is_focused: bool) {
         let now = Local::now();
         let date_str = now.format(&self.format).to_string();
 
@@ -41,7 +41,7 @@ impl super::Widget for DateWidget {
             .title(" Date ")
             .borders(Borders::ALL)
             .border_type(theme.border_type())
-            .border_style(Style::default().fg(theme.dim));
+            .border_style(Style::default().fg(if is_focused { theme.accent } else { theme.dim }));
 
         let paragraph = Paragraph::new(lines)
             .block(block)

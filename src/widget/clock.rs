@@ -26,7 +26,7 @@ impl ClockWidget {
 }
 
 impl super::Widget for ClockWidget {
-    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
+    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme, is_focused: bool) {
         let now = Local::now();
 
         let (time_str, suffix) = if self.format == "12hr" {
@@ -74,7 +74,7 @@ impl super::Widget for ClockWidget {
             .title(" Clock ")
             .borders(Borders::ALL)
             .border_type(theme.border_type())
-            .border_style(Style::default().fg(theme.dim));
+            .border_style(Style::default().fg(if is_focused { theme.accent } else { theme.dim }));
 
         let paragraph = Paragraph::new(lines)
             .block(block)

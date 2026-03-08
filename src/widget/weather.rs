@@ -194,14 +194,14 @@ impl super::Widget for WeatherWidget {
         (20, 9)
     }
 
-    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
+    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme, is_focused: bool) {
         let snapshot = { self.state.lock().unwrap_or_else(|e| e.into_inner()).clone() };
 
         let block = Block::default()
             .title(" Weather ")
             .borders(Borders::ALL)
             .border_type(theme.border_type())
-            .border_style(Style::default().fg(theme.dim));
+            .border_style(Style::default().fg(if is_focused { theme.accent } else { theme.dim }));
 
         match &snapshot.result {
             FetchResult::Loading => {

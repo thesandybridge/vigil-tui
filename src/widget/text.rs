@@ -45,7 +45,7 @@ impl TextWidget {
 }
 
 impl super::Widget for TextWidget {
-    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
+    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme, is_focused: bool) {
         let inner_height = area.height.saturating_sub(2);
         let content_lines: Vec<&str> = self.content.lines().collect();
         let content_height = content_lines.len() as u16;
@@ -69,7 +69,7 @@ impl super::Widget for TextWidget {
             .title(block_title)
             .borders(Borders::ALL)
             .border_type(theme.border_type())
-            .border_style(Style::default().fg(theme.dim));
+            .border_style(Style::default().fg(if is_focused { theme.accent } else { theme.dim }));
 
         let paragraph = Paragraph::new(lines)
             .block(block)

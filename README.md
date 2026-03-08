@@ -16,6 +16,8 @@ A configurable terminal dashboard built with Rust and [ratatui](https://ratatui.
 - **Theme presets** — gruvbox, catppuccin-mocha, catppuccin-latte, nord, tokyo-night, dracula, solarized-dark
 - **Custom themes** — define your own colors and border style
 - **TOML config** — named zones with per-widget configuration
+- **Zone navigation** — vim-style `hjkl` spatial movement and mouse click to focus zones
+- **Target launching** — press Enter to launch terminal apps or open URLs in the browser
 - **Hot reload** — auto-reloads on config file save, or press `r` manually
 - **Cross-platform** — works on Linux, macOS, and Windows
 
@@ -38,10 +40,13 @@ On first run, a default config is created at `~/.config/vigil-tui/config.toml`.
 
 | Key | Action |
 |-----|--------|
+| `h` `j` `k` `l` | Move focus left/down/up/right |
+| `Enter` | Launch focused zone's target |
+| Mouse click | Focus clicked zone |
 | `q` / `Ctrl+C` | Quit |
 | `r` | Force reload config |
 
-Config is also reloaded automatically whenever the file is saved. If a reload fails (e.g. syntax error), the previous working config stays active and a red error banner appears at the bottom of the screen until the next successful reload.
+Focused zones are highlighted with the theme's accent color. Config is also reloaded automatically whenever the file is saved.
 
 ## Configuration
 
@@ -137,6 +142,36 @@ height = 13
 ```
 
 Zones without `col` each get their own column automatically (backward compatible).
+
+### Zone Targets
+
+Each zone can have a `target` that launches when you press Enter on a focused zone:
+
+```toml
+[[zones]]
+id = "stats"
+widget = "system"
+target = "btop"                    # runs in terminal, vigil suspends/resumes
+
+[[zones]]
+id = "weather"
+widget = "weather"
+target = "https://merrysky.net"    # http/https opens in browser automatically
+
+[[zones]]
+id = "docs"
+widget = "text"
+target = "wttr.in"
+mode = "browser"                   # force browser for URLs without scheme
+```
+
+| Condition | Behavior |
+|-----------|----------|
+| `target` starts with `http://` or `https://` | Opens in browser, vigil stays running |
+| `mode = "browser"` | Opens in browser, vigil stays running |
+| Everything else | Suspends vigil, runs in terminal, resumes on exit |
+
+For detached apps, append `&` to the command: `target = "obsidian &"`.
 
 ## Widgets
 

@@ -315,7 +315,7 @@ mod tests {
     }
 
     impl crate::widget::Widget for MockWidget {
-        fn draw(&self, _frame: &mut Frame, _area: ratatui::layout::Rect, _theme: &Theme) {}
+        fn draw(&self, _frame: &mut Frame, _area: ratatui::layout::Rect, _theme: &Theme, _is_focused: bool) {}
         fn min_size(&self) -> (u16, u16) {
             (self.min_w, self.min_h)
         }
@@ -333,6 +333,8 @@ mod tests {
             col: None,
             min_width: None,
             min_height: None,
+            target: None,
+            mode: None,
             config: None,
         }
     }

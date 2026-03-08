@@ -103,7 +103,7 @@ impl super::Widget for SystemWidget {
         (20, 9)
     }
 
-    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
+    fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme, is_focused: bool) {
         let (cpu_usage, mem_used, mem_total) = {
             let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (s.cpu_usage, s.mem_used, s.mem_total)
@@ -153,7 +153,7 @@ impl super::Widget for SystemWidget {
             .title(" System ")
             .borders(Borders::ALL)
             .border_type(theme.border_type())
-            .border_style(Style::default().fg(theme.dim));
+            .border_style(Style::default().fg(if is_focused { theme.accent } else { theme.dim }));
 
         let paragraph = Paragraph::new(lines)
             .block(block)

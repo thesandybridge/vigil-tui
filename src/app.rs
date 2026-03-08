@@ -10,6 +10,7 @@ use tokio::task::JoinHandle;
 
 use crate::config::{AppConfig, LayoutMode, ZoneConfig};
 use crate::layout::{self, check_terminal_size, ZoneLayout};
+use crate::nav;
 use crate::theme::{resolve_theme, Theme};
 use crate::widget::{self, Widget};
 
@@ -26,6 +27,8 @@ pub struct App {
     update_tasks: Vec<JoinHandle<()>>,
     layout_mode: LayoutMode,
     config_error: Option<String>,
+    focused_zone: Option<usize>,
+    last_rects: Vec<Rect>,
 }
 
 impl App {
@@ -65,10 +68,12 @@ impl App {
             update_tasks,
             layout_mode,
             config_error: None,
+            focused_zone: None,
+            last_rects: Vec::new(),
         })
     }
 
-    pub fn draw(&self, frame: &mut Frame) {
+    pub fn draw(&mut self, frame: &mut Frame) {
         let size = frame.area();
 
         if self.layout_mode == LayoutMode::Rows {
@@ -86,20 +91,23 @@ impl App {
         let bg_block = Block::default().style(Style::default().bg(self.theme.bg));
         frame.render_widget(bg_block, size);
 
-        for entry in &self.zones {
+        let mut rects = Vec::with_capacity(self.zones.len());
+        for (idx, entry) in self.zones.iter().enumerate() {
             let area = entry.layout.to_rect(size.width, size.height);
+            rects.push(area);
+            let focused = self.focused_zone == Some(idx);
             if let Some(err) = entry.widget.error() {
                 self.draw_error(frame, area, &entry.layout.id, &err);
             } else {
-                entry.widget.draw(frame, area, &self.theme);
+                entry.widget.draw(frame, area, &self.theme, focused);
             }
         }
+        self.last_rects = rects;
 
         self.draw_config_error(frame, size);
     }
 
-    fn draw_rows(&self, frame: &mut Frame, size: Rect) {
-        // Build min-size proxies for layout computation
+    fn draw_rows(&mut self, frame: &mut Frame, size: Rect) {
         let proxies: Vec<Box<dyn Widget>> = self
             .zones
             .iter()
@@ -117,14 +125,18 @@ impl App {
         let bg_block = Block::default().style(Style::default().bg(self.theme.bg));
         frame.render_widget(bg_block, size);
 
-        for (entry, layout) in self.zones.iter().zip(layouts.iter()) {
+        let mut rects = Vec::with_capacity(self.zones.len());
+        for (idx, (entry, layout)) in self.zones.iter().zip(layouts.iter()).enumerate() {
             let area = layout.to_rect(size.width, size.height);
+            rects.push(area);
+            let focused = self.focused_zone == Some(idx);
             if let Some(err) = entry.widget.error() {
                 self.draw_error(frame, area, &layout.id, &err);
             } else {
-                entry.widget.draw(frame, area, &self.theme);
+                entry.widget.draw(frame, area, &self.theme, focused);
             }
         }
+        self.last_rects = rects;
 
         self.draw_config_error(frame, size);
     }
@@ -196,7 +208,43 @@ impl App {
         }
     }
 
+    pub fn navigate(&mut self, dir: nav::Dir) {
+        if self.last_rects.is_empty() {
+            return;
+        }
+        if let Some(idx) = nav::find_neighbor(&self.last_rects, self.focused_zone, dir) {
+            self.focused_zone = Some(idx);
+        }
+    }
+
+    pub fn focus_at(&mut self, col: u16, row: u16) {
+        for (i, rect) in self.last_rects.iter().enumerate() {
+            if col >= rect.x
+                && col < rect.x + rect.width
+                && row >= rect.y
+                && row < rect.y + rect.height
+            {
+                self.focused_zone = Some(i);
+                return;
+            }
+        }
+    }
+
+    pub fn launch_focused(&self) -> Result<()> {
+        let idx = match self.focused_zone {
+            Some(i) => i,
+            None => return Ok(()),
+        };
+        let cfg = &self.zone_configs[idx];
+        let target = match &cfg.target {
+            Some(t) => t,
+            None => return Ok(()),
+        };
+        crate::launch::launch(target, cfg.mode.as_deref())
+    }
+
     pub fn reload(&mut self) {
+        let prev_focus = self.focused_zone;
         match App::from_config(&self.config_path) {
             Ok(new_app) => {
                 self.abort_update_tasks();
@@ -206,6 +254,8 @@ impl App {
                 self.update_tasks = new_app.update_tasks;
                 self.layout_mode = new_app.layout_mode;
                 self.config_error = None;
+                self.focused_zone = prev_focus.filter(|&i| i < self.zones.len());
+                self.last_rects.clear();
             }
             Err(e) => {
                 self.config_error = Some(e.to_string());
@@ -232,7 +282,7 @@ impl App {
 struct MinSizeProxy((u16, u16));
 
 impl Widget for MinSizeProxy {
-    fn draw(&self, _frame: &mut Frame, _area: Rect, _theme: &Theme) {}
+    fn draw(&self, _frame: &mut Frame, _area: Rect, _theme: &Theme, _is_focused: bool) {}
     fn min_size(&self) -> (u16, u16) {
         self.0
     }

@@ -36,6 +36,8 @@ pub struct ZoneConfig {
     pub col: Option<u16>,
     pub min_width: Option<u16>,
     pub min_height: Option<u16>,
+    pub target: Option<String>,
+    pub mode: Option<String>,
     pub config: Option<toml::Value>,
 }
 
@@ -154,6 +156,8 @@ mod tests {
             col: None,
             min_width: None,
             min_height: None,
+            target: None,
+            mode: None,
             config: None,
         }
     }

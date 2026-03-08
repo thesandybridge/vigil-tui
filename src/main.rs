@@ -3,16 +3,20 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use notify::{EventKind, RecursiveMode, Watcher};
-use vigil_tui::app::App;
-use vigil_tui::config::resolve_config_path;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+    MouseEventKind,
+};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
+use notify::{EventKind, RecursiveMode, Watcher};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use vigil_tui::app::App;
+use vigil_tui::config::resolve_config_path;
+use vigil_tui::nav::Dir;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,19 +26,24 @@ async fn main() -> Result<()> {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         let _ = disable_raw_mode();
+        let _ = io::stdout().execute(DisableMouseCapture);
         let _ = io::stdout().execute(LeaveAlternateScreen);
         original_hook(panic_info);
     }));
 
     enable_raw_mode()?;
-    io::stdout().execute(EnterAlternateScreen)?;
+    io::stdout()
+        .execute(EnterAlternateScreen)?
+        .execute(EnableMouseCapture)?;
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
     let result = run(&mut terminal, config_path.to_str().unwrap_or("config.toml")).await;
 
     disable_raw_mode()?;
-    io::stdout().execute(LeaveAlternateScreen)?;
+    io::stdout()
+        .execute(DisableMouseCapture)?
+        .execute(LeaveAlternateScreen)?;
 
     result
 }
@@ -87,14 +96,30 @@ async fn run(
             app.reload();
         }
 
-        if event::poll(Duration::from_millis(50))?
-            && let Event::Key(key) = event::read()?
-            && key.kind == KeyEventKind::Press
-        {
-            match (key.code, key.modifiers) {
-                (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => break,
-                (KeyCode::Char('r'), _) => {
-                    app.reload();
+        if event::poll(Duration::from_millis(50))? {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    match (key.code, key.modifiers) {
+                        (KeyCode::Char('q'), _)
+                        | (KeyCode::Char('c'), KeyModifiers::CONTROL) => break,
+                        (KeyCode::Char('r'), _) => app.reload(),
+                        (KeyCode::Char('h'), _) => app.navigate(Dir::Left),
+                        (KeyCode::Char('j'), _) => app.navigate(Dir::Down),
+                        (KeyCode::Char('k'), _) => app.navigate(Dir::Up),
+                        (KeyCode::Char('l'), _) => app.navigate(Dir::Right),
+                        (KeyCode::Enter, _) => {
+                            if let Err(e) = app.launch_focused() {
+                                app.set_config_error(format!("launch error: {e}"));
+                            }
+                            terminal.clear()?;
+                        }
+                        _ => {}
+                    }
+                }
+                Event::Mouse(mouse) => {
+                    if matches!(mouse.kind, MouseEventKind::Down(crossterm::event::MouseButton::Left)) {
+                        app.focus_at(mouse.column, mouse.row);
+                    }
                 }
                 _ => {}
             }
