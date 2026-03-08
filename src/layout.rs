@@ -157,16 +157,19 @@ pub fn build_rows(
     for row in &ordered_rows {
         let row_height = row.fixed_height.unwrap_or(fill_height);
 
-        let total_explicit_width: u16 = row.columns.iter().map(|(_, w)| *w).sum();
-        let needs_auto = total_explicit_width == 0;
+        // Flex-like width distribution:
+        // Columns with explicit width keep it. Remaining space splits among width=0 columns.
+        let explicit_total: u16 = row.columns.iter().map(|(_, w)| *w).sum();
+        let auto_count = row.columns.iter().filter(|(_, w)| *w == 0).count() as u16;
+        let auto_width = if auto_count > 0 {
+            100u16.saturating_sub(explicit_total) / auto_count
+        } else {
+            0
+        };
 
         let mut current_x_pct: u16 = 0;
         for (zone_idx, width_pct) in &row.columns {
-            let w = if needs_auto {
-                100 / row.columns.len() as u16
-            } else {
-                *width_pct
-            };
+            let w = if *width_pct == 0 { auto_width } else { *width_pct };
 
             let (min_w, min_h) = widgets[*zone_idx].min_size();
             placement_order.push((*zone_idx, ZoneLayout {
