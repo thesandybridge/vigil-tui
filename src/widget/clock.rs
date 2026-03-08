@@ -31,18 +31,17 @@ impl super::Widget for ClockWidget {
 
         let (time_str, suffix) = if self.format == "12hr" {
             let (is_pm, hour) = now.hour12();
-            let suffix = if is_pm { " PM" } else { " AM" };
-            (format!("{:2}:{:02}", hour, now.minute()), suffix)
+            let suffix = if is_pm { "PM" } else { "AM" };
+            (format!("{:>2}:{:02}", hour, now.minute()), suffix)
         } else {
-            (format!("{:2}:{:02}", now.hour(), now.minute()), "")
+            (format!("{:>2}:{:02}", now.hour(), now.minute()), "")
         };
 
         let big_lines = render_big_text(&time_str);
-        let seconds_text = format!(":{:02}", now.second());
 
-        // Total content: 5 lines for big digits + 1 blank + 1 seconds line = 7
+        // Content height: 5 big lines + 1 blank + 1 seconds/suffix line
         let content_height = 7u16;
-        let inner_height = area.height.saturating_sub(2); // border
+        let inner_height = area.height.saturating_sub(2);
         let pad_top = inner_height.saturating_sub(content_height) / 2;
 
         let mut lines: Vec<Line> = Vec::new();
@@ -52,25 +51,22 @@ impl super::Widget for ClockWidget {
         }
 
         for big_line in &big_lines {
-            let mut spans = vec![Span::styled(
+            lines.push(Line::from(Span::styled(
                 big_line.clone(),
                 Style::default().fg(theme.accent),
-            )];
-            if !suffix.is_empty() {
-                // Only append suffix on the last big-digit line
-                if big_line == big_lines.last().unwrap() {
-                    spans.push(Span::styled(
-                        suffix.to_string(),
-                        Style::default().fg(theme.dim),
-                    ));
-                }
-            }
-            lines.push(Line::from(spans));
+            )));
         }
+
+        // Seconds + AM/PM on a separate line below the big digits
+        let detail = if suffix.is_empty() {
+            format!(":{:02}", now.second())
+        } else {
+            format!(":{:02} {suffix}", now.second())
+        };
 
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            seconds_text,
+            detail,
             Style::default().fg(theme.dim),
         )));
 
@@ -82,8 +78,7 @@ impl super::Widget for ClockWidget {
 
         let paragraph = Paragraph::new(lines)
             .block(block)
-            .alignment(Alignment::Center)
-            .style(Style::default().fg(theme.fg));
+            .alignment(Alignment::Center);
 
         frame.render_widget(paragraph, area);
     }
