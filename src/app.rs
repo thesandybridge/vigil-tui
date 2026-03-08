@@ -4,7 +4,7 @@ use anyhow::Result;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
 use tokio::task::JoinHandle;
 
@@ -25,6 +25,7 @@ pub struct App {
     theme: Theme,
     update_tasks: Vec<JoinHandle<()>>,
     layout_mode: LayoutMode,
+    config_error: Option<String>,
 }
 
 impl App {
@@ -63,6 +64,7 @@ impl App {
             theme,
             update_tasks,
             layout_mode,
+            config_error: None,
         })
     }
 
@@ -92,6 +94,8 @@ impl App {
                 entry.widget.draw(frame, area, &self.theme);
             }
         }
+
+        self.draw_config_error(frame, size);
     }
 
     fn draw_rows(&self, frame: &mut Frame, size: Rect) {
@@ -121,6 +125,8 @@ impl App {
                 entry.widget.draw(frame, area, &self.theme);
             }
         }
+
+        self.draw_config_error(frame, size);
     }
 
     fn draw_too_small(&self, frame: &mut Frame, area: Rect, req_w: u16, req_h: u16) {
@@ -174,15 +180,45 @@ impl App {
         frame.render_widget(paragraph, area);
     }
 
-    pub fn reload(&mut self) -> Result<()> {
-        self.abort_update_tasks();
-        let new_app = App::from_config(&self.config_path)?;
-        self.zones = new_app.zones;
-        self.zone_configs = new_app.zone_configs;
-        self.theme = new_app.theme;
-        self.update_tasks = new_app.update_tasks;
-        self.layout_mode = new_app.layout_mode;
-        Ok(())
+    fn draw_config_error(&self, frame: &mut Frame, size: Rect) {
+        if let Some(ref msg) = self.config_error {
+            let banner_height = 3;
+            let area = Rect::new(0, size.height.saturating_sub(banner_height), size.width, banner_height);
+            let block = Block::default()
+                .title(" config error ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Red));
+            frame.render_widget(Clear, area);
+            let paragraph = Paragraph::new(msg.as_str())
+                .block(block)
+                .style(Style::default().fg(Color::Red).bg(self.theme.bg));
+            frame.render_widget(paragraph, area);
+        }
+    }
+
+    pub fn reload(&mut self) {
+        match App::from_config(&self.config_path) {
+            Ok(new_app) => {
+                self.abort_update_tasks();
+                self.zones = new_app.zones;
+                self.zone_configs = new_app.zone_configs;
+                self.theme = new_app.theme;
+                self.update_tasks = new_app.update_tasks;
+                self.layout_mode = new_app.layout_mode;
+                self.config_error = None;
+            }
+            Err(e) => {
+                self.config_error = Some(e.to_string());
+            }
+        }
+    }
+
+    pub fn set_config_error(&mut self, msg: String) {
+        self.config_error = Some(msg);
+    }
+
+    pub fn clear_config_error(&mut self) {
+        self.config_error = None;
     }
 
     pub fn abort_update_tasks(&mut self) {

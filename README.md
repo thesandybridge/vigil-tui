@@ -16,7 +16,7 @@ A configurable terminal dashboard built with Rust and [ratatui](https://ratatui.
 - **Theme presets** — gruvbox, catppuccin-mocha, catppuccin-latte, nord, tokyo-night, dracula, solarized-dark
 - **Custom themes** — define your own colors and border style
 - **TOML config** — named zones with per-widget configuration
-- **Hot reload** — press `r` to reload config without restarting
+- **Hot reload** — auto-reloads on config file save, or press `r` manually
 - **Cross-platform** — works on Linux, macOS, and Windows
 
 ## Install
@@ -39,7 +39,9 @@ On first run, a default config is created at `~/.config/vigil-tui/config.toml`.
 | Key | Action |
 |-----|--------|
 | `q` / `Ctrl+C` | Quit |
-| `r` | Reload config |
+| `r` | Force reload config |
+
+Config is also reloaded automatically whenever the file is saved. If a reload fails (e.g. syntax error), the previous working config stays active and a red error banner appears at the bottom of the screen until the next successful reload.
 
 ## Configuration
 
