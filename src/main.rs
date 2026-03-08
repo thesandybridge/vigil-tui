@@ -1,5 +1,6 @@
 mod app;
 mod config;
+mod digits;
 mod layout;
 mod theme;
 mod widget;
