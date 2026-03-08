@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "A configurable terminal dashboard with clock, weather, system stats, and more"
 license = "MIT"
-readme = "config.example.toml"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1"
