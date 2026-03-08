@@ -29,7 +29,7 @@ pub enum ComputedRect {
 
 impl ZoneLayout {
     pub fn to_rect(&self, terminal_width: u16, terminal_height: u16) -> Rect {
-        match &self.rect {
+        let (x, y, w, h) = match &self.rect {
             ComputedRect::Percent {
                 pct_x,
                 pct_y,
@@ -40,15 +40,23 @@ impl ZoneLayout {
                 let y = (*pct_y as u32 * terminal_height as u32 / 100) as u16;
                 let w = (*pct_w as u32 * terminal_width as u32 / 100) as u16;
                 let h = (*pct_h as u32 * terminal_height as u32 / 100) as u16;
-                Rect::new(x, y, w, h)
+                (x, y, w, h)
             }
-            ComputedRect::Fixed { x, y, w, h } => {
-                // Width is still percentage-based (of terminal width)
-                let actual_w = (*w as u32 * terminal_width as u32 / 100) as u16;
-                let actual_x = (*x as u32 * terminal_width as u32 / 100) as u16;
-                Rect::new(actual_x, *y, actual_w, *h)
+            ComputedRect::Fixed {
+                x: fx,
+                y: fy,
+                w: fw,
+                h: fh,
+            } => {
+                let x = (*fx as u32 * terminal_width as u32 / 100) as u16;
+                let w = (*fw as u32 * terminal_width as u32 / 100) as u16;
+                (x, *fy, w, *fh)
             }
-        }
+        };
+        // Clamp to terminal bounds to prevent buffer overflow from rounding
+        let w = w.min(terminal_width.saturating_sub(x));
+        let h = h.min(terminal_height.saturating_sub(y));
+        Rect::new(x, y, w, h)
     }
 }
 
