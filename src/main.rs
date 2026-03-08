@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use app::App;
+use config::resolve_config_path;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -20,9 +21,7 @@ use ratatui::Terminal;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let config_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "config.toml".to_string());
+    let config_path = resolve_config_path(std::env::args().nth(1))?;
 
     // Install panic hook to restore terminal on crash
     let original_hook = std::panic::take_hook();
@@ -37,7 +36,7 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run(&mut terminal, &config_path).await;
+    let result = run(&mut terminal, config_path.to_str().unwrap_or("config.toml")).await;
 
     disable_raw_mode()?;
     io::stdout().execute(LeaveAlternateScreen)?;
