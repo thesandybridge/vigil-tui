@@ -8,8 +8,26 @@ pub enum Dir {
     Right,
 }
 
+/// Check if two rects overlap on the perpendicular axis for the given direction.
+/// For Left/Right: do they share any vertical range?
+/// For Up/Down: do they share any horizontal range?
+fn has_perpendicular_overlap(a: &Rect, b: &Rect, dir: Dir) -> bool {
+    match dir {
+        Dir::Left | Dir::Right => {
+            a.y < b.y + b.height && b.y < a.y + a.height
+        }
+        Dir::Up | Dir::Down => {
+            a.x < b.x + b.width && b.x < a.x + a.width
+        }
+    }
+}
+
 /// Returns the index of the nearest zone in the given direction from `current`.
 /// If `current` is None (no focus), picks the first zone.
+///
+/// Prefers zones that overlap on the perpendicular axis (e.g. for Left/Right,
+/// zones sharing a vertical range). Falls back to any zone in the direction
+/// if no overlapping candidate exists.
 pub fn find_neighbor(zones: &[Rect], current: Option<usize>, dir: Dir) -> Option<usize> {
     if zones.is_empty() {
         return None;
@@ -24,8 +42,8 @@ pub fn find_neighbor(zones: &[Rect], current: Option<usize>, dir: Dir) -> Option
     let src_cx = source.x as i32 + source.width as i32 / 2;
     let src_cy = source.y as i32 + source.height as i32 / 2;
 
-    let mut best_idx: Option<usize> = None;
-    let mut best_dist = i64::MAX;
+    let mut best_overlap: Option<(usize, i64)> = None;
+    let mut best_any: Option<(usize, i64)> = None;
 
     for (i, rect) in zones.iter().enumerate() {
         if i == idx {
@@ -45,7 +63,6 @@ pub fn find_neighbor(zones: &[Rect], current: Option<usize>, dir: Dir) -> Option
             continue;
         }
 
-        // Primarily axial distance, secondarily lateral (avoids diagonal drift)
         let (axial, lateral) = match dir {
             Dir::Left | Dir::Right => (
                 (src_cx - cx).unsigned_abs() as i64,
@@ -58,13 +75,17 @@ pub fn find_neighbor(zones: &[Rect], current: Option<usize>, dir: Dir) -> Option
         };
         let dist = axial * 10 + lateral;
 
-        if dist < best_dist {
-            best_dist = dist;
-            best_idx = Some(i);
+        if has_perpendicular_overlap(&source, rect, dir) {
+            if best_overlap.is_none_or(|(_, d)| dist < d) {
+                best_overlap = Some((i, dist));
+            }
+        }
+        if best_any.is_none_or(|(_, d)| dist < d) {
+            best_any = Some((i, dist));
         }
     }
 
-    best_idx
+    best_overlap.or(best_any).map(|(i, _)| i)
 }
 
 #[cfg(test)]
@@ -134,5 +155,29 @@ mod tests {
     #[test]
     fn empty_zones() {
         assert_eq!(find_neighbor(&[], Some(0), Dir::Right), None);
+    }
+
+    #[test]
+    fn prefers_same_row_column_over_full_width() {
+        // Simulates: full-width clock on top, two columns below (left + right)
+        let zones = vec![
+            r(0, 0, 100, 13),  // clock (full width)
+            r(0, 13, 35, 10),  // left column (date)
+            r(35, 13, 65, 10), // right column (stats)
+        ];
+        // From left column, pressing Right should go to stats (overlapping row),
+        // not clock (which is also to the right but in a different row)
+        assert_eq!(find_neighbor(&zones, Some(1), Dir::Right), Some(2));
+    }
+
+    #[test]
+    fn falls_back_when_no_overlap() {
+        // Two zones with no vertical overlap
+        let zones = vec![
+            r(0, 0, 10, 10),
+            r(20, 20, 10, 10),
+        ];
+        // Still navigates right even though no vertical overlap
+        assert_eq!(find_neighbor(&zones, Some(0), Dir::Right), Some(1));
     }
 }
