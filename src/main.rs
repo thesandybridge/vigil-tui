@@ -1,16 +1,9 @@
-mod app;
-mod config;
-mod digits;
-mod layout;
-mod theme;
-mod widget;
-
 use std::io;
 use std::time::Duration;
 
 use anyhow::Result;
-use app::App;
-use config::resolve_config_path;
+use vigil_tui::app::App;
+use vigil_tui::config::resolve_config_path;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,

@@ -127,3 +127,75 @@ fn preset(name: &str) -> Theme {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{CustomTheme, ThemeConfig};
+
+    #[test]
+    fn hex_to_color_valid() {
+        assert_eq!(hex_to_color("#ff8019"), Some(Color::Rgb(0xff, 0x80, 0x19)));
+        assert_eq!(hex_to_color("000000"), Some(Color::Rgb(0, 0, 0)));
+    }
+
+    #[test]
+    fn hex_to_color_invalid() {
+        assert_eq!(hex_to_color(""), None);
+        assert_eq!(hex_to_color("#fff"), None);
+        assert_eq!(hex_to_color("zzzzzz"), None);
+    }
+
+    #[test]
+    fn resolve_theme_none_returns_default() {
+        let theme = resolve_theme(&None);
+        assert_eq!(theme.fg, Color::Reset);
+        assert_eq!(theme.bg, Color::Reset);
+    }
+
+    #[test]
+    fn resolve_theme_preset() {
+        let config = Some(ThemeConfig::Preset("gruvbox".to_string()));
+        let theme = resolve_theme(&config);
+        assert_eq!(theme.bg, Color::Rgb(0x28, 0x28, 0x28));
+    }
+
+    #[test]
+    fn resolve_theme_custom() {
+        let config = Some(ThemeConfig::Custom(CustomTheme {
+            fg: Some("#ff0000".to_string()),
+            bg: None,
+            accent: None,
+            dim: None,
+            border: Some("double".to_string()),
+        }));
+        let theme = resolve_theme(&config);
+        assert_eq!(theme.fg, Color::Rgb(0xff, 0, 0));
+        assert_eq!(theme.bg, Color::Reset); // falls back to default
+        matches!(theme.border, BorderStyle::Double);
+    }
+
+    #[test]
+    fn resolve_theme_unknown_preset_returns_default() {
+        let config = Some(ThemeConfig::Preset("nonexistent".to_string()));
+        let theme = resolve_theme(&config);
+        assert_eq!(theme.fg, Color::Reset);
+    }
+
+    #[test]
+    fn all_presets_have_non_default_bg() {
+        let presets = [
+            "gruvbox",
+            "catppuccin-mocha",
+            "catppuccin-latte",
+            "nord",
+            "tokyo-night",
+            "dracula",
+            "solarized-dark",
+        ];
+        for name in presets {
+            let theme = preset(name);
+            assert_ne!(theme.bg, Color::Reset, "preset '{}' should have a bg", name);
+        }
+    }
+}

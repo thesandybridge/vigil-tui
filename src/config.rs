@@ -71,7 +71,7 @@ impl AppConfig {
         Ok(config)
     }
 
-    fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.layout == LayoutMode::Absolute {
             for zone in &self.zones {
                 anyhow::ensure!(
@@ -137,6 +137,105 @@ impl AppConfig {
 }
 
 const DEFAULT_CONFIG: &str = include_str!("../config.example.toml");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn zone(id: &str, x: u16, y: u16, w: u16, h: u16) -> ZoneConfig {
+        ZoneConfig {
+            id: id.to_string(),
+            widget: "text".to_string(),
+            x,
+            y,
+            width: w,
+            height: h,
+            row: None,
+            col: None,
+            min_width: None,
+            min_height: None,
+            config: None,
+        }
+    }
+
+    fn abs_config(zones: Vec<ZoneConfig>) -> AppConfig {
+        AppConfig {
+            layout: LayoutMode::Absolute,
+            theme: None,
+            icons: None,
+            zones,
+        }
+    }
+
+    fn rows_config(zones: Vec<ZoneConfig>) -> AppConfig {
+        AppConfig {
+            layout: LayoutMode::Rows,
+            theme: None,
+            icons: None,
+            zones,
+        }
+    }
+
+    #[test]
+    fn validate_absolute_valid() {
+        let config = abs_config(vec![zone("a", 0, 0, 50, 50)]);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_absolute_zero_size() {
+        let config = abs_config(vec![zone("a", 0, 0, 0, 50)]);
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn validate_absolute_exceeds_bounds() {
+        let config = abs_config(vec![zone("a", 50, 0, 51, 50)]);
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("exceeds 100%"));
+    }
+
+    #[test]
+    fn validate_rows_valid_widths() {
+        let mut z1 = zone("a", 0, 0, 60, 10);
+        z1.row = Some(1);
+        z1.col = Some(1);
+        let mut z2 = zone("b", 0, 0, 40, 10);
+        z2.row = Some(1);
+        z2.col = Some(2);
+        let config = rows_config(vec![z1, z2]);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rows_exceeding_100() {
+        let mut z1 = zone("a", 0, 0, 60, 10);
+        z1.row = Some(1);
+        z1.col = Some(1);
+        let mut z2 = zone("b", 0, 0, 50, 10);
+        z2.row = Some(1);
+        z2.col = Some(2);
+        let config = rows_config(vec![z1, z2]);
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn default_layout_mode_is_absolute() {
+        assert_eq!(LayoutMode::default(), LayoutMode::Absolute);
+    }
+
+    #[test]
+    fn use_icons_default_true() {
+        let config = abs_config(vec![zone("a", 0, 0, 50, 50)]);
+        assert!(config.use_icons());
+    }
+
+    #[test]
+    fn resolve_config_path_explicit_arg() {
+        let path = resolve_config_path(Some("/tmp/test.toml".to_string())).unwrap();
+        assert_eq!(path, PathBuf::from("/tmp/test.toml"));
+    }
+}
 
 /// Returns the config path, resolving in order:
 /// 1. Explicit CLI argument

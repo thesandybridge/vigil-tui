@@ -297,6 +297,194 @@ pub fn build_rows(
     placement_order.into_iter().map(|(_, layout)| layout).collect()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::Frame;
+    use crate::theme::Theme;
+
+    struct MockWidget {
+        min_w: u16,
+        min_h: u16,
+    }
+
+    impl MockWidget {
+        fn new(min_w: u16, min_h: u16) -> Self {
+            Self { min_w, min_h }
+        }
+    }
+
+    impl crate::widget::Widget for MockWidget {
+        fn draw(&self, _frame: &mut Frame, _area: ratatui::layout::Rect, _theme: &Theme) {}
+        fn min_size(&self) -> (u16, u16) {
+            (self.min_w, self.min_h)
+        }
+    }
+
+    fn zone(id: &str, x: u16, y: u16, w: u16, h: u16) -> ZoneConfig {
+        ZoneConfig {
+            id: id.to_string(),
+            widget: "text".to_string(),
+            x,
+            y,
+            width: w,
+            height: h,
+            row: None,
+            col: None,
+            min_width: None,
+            min_height: None,
+            config: None,
+        }
+    }
+
+    fn mock_widgets(sizes: &[(u16, u16)]) -> Vec<Box<dyn crate::widget::Widget>> {
+        sizes
+            .iter()
+            .map(|&(w, h)| -> Box<dyn crate::widget::Widget> { Box::new(MockWidget::new(w, h)) })
+            .collect()
+    }
+
+    #[test]
+    fn build_absolute_positioning() {
+        let zones = vec![zone("a", 10, 20, 30, 40)];
+        let widgets = mock_widgets(&[(12, 5)]);
+        let layouts = build_absolute(&zones, &widgets);
+
+        assert_eq!(layouts.len(), 1);
+        assert_eq!(layouts[0].id, "a");
+        match &layouts[0].rect {
+            ComputedRect::Percent { pct_x, pct_y, pct_w, pct_h } => {
+                assert_eq!(*pct_x, 10);
+                assert_eq!(*pct_y, 20);
+                assert_eq!(*pct_w, 30);
+                assert_eq!(*pct_h, 40);
+            }
+            _ => panic!("expected Percent rect"),
+        }
+    }
+
+    #[test]
+    fn build_rows_single_zone() {
+        let mut z = zone("a", 0, 0, 100, 0);
+        z.row = Some(1);
+        let widgets = mock_widgets(&[(12, 10)]);
+        let layouts = build_rows(&[z], &widgets, 40);
+
+        assert_eq!(layouts.len(), 1);
+        match &layouts[0].rect {
+            ComputedRect::Fixed { x, w, .. } => {
+                assert_eq!(*x, 0);
+                assert_eq!(*w, 100);
+            }
+            _ => panic!("expected Fixed rect"),
+        }
+    }
+
+    #[test]
+    fn build_rows_two_columns() {
+        let mut z1 = zone("a", 0, 0, 60, 10);
+        z1.row = Some(1);
+        z1.col = Some(1);
+        let mut z2 = zone("b", 0, 0, 40, 10);
+        z2.row = Some(1);
+        z2.col = Some(2);
+        let widgets = mock_widgets(&[(12, 5), (12, 5)]);
+        let layouts = build_rows(&[z1, z2], &widgets, 40);
+
+        assert_eq!(layouts.len(), 2);
+        match &layouts[0].rect {
+            ComputedRect::Fixed { x, w, .. } => {
+                assert_eq!(*x, 0);
+                assert_eq!(*w, 60);
+            }
+            _ => panic!("expected Fixed rect"),
+        }
+        match &layouts[1].rect {
+            ComputedRect::Fixed { x, w, .. } => {
+                assert_eq!(*x, 60);
+                assert_eq!(*w, 40);
+            }
+            _ => panic!("expected Fixed rect"),
+        }
+    }
+
+    #[test]
+    fn build_rows_col_stacking() {
+        let mut z1 = zone("a", 0, 0, 100, 5);
+        z1.row = Some(1);
+        z1.col = Some(1);
+        let mut z2 = zone("b", 0, 0, 100, 5);
+        z2.row = Some(1);
+        z2.col = Some(1);
+        let widgets = mock_widgets(&[(12, 5), (12, 5)]);
+        let layouts = build_rows(&[z1, z2], &widgets, 40);
+
+        assert_eq!(layouts.len(), 2);
+        // Second zone should be stacked below first
+        let y0 = match &layouts[0].rect { ComputedRect::Fixed { y, .. } => *y, _ => panic!() };
+        let y1 = match &layouts[1].rect { ComputedRect::Fixed { y, .. } => *y, _ => panic!() };
+        assert!(y1 > y0, "stacked zone should be below first");
+    }
+
+    #[test]
+    fn to_rect_clamping() {
+        let layout = ZoneLayout {
+            id: "a".to_string(),
+            rect: ComputedRect::Percent { pct_x: 90, pct_y: 90, pct_w: 50, pct_h: 50 },
+            min_w: 0,
+            min_h: 0,
+            row_y: None,
+        };
+        let rect = layout.to_rect(100, 100);
+        // x=90, w=50 -> clamped to 100-90=10
+        assert!(rect.x + rect.width <= 100);
+        assert!(rect.y + rect.height <= 100);
+    }
+
+    #[test]
+    fn check_terminal_size_sufficient() {
+        let layout = ZoneLayout {
+            id: "a".to_string(),
+            rect: ComputedRect::Percent { pct_x: 0, pct_y: 0, pct_w: 50, pct_h: 50 },
+            min_w: 20,
+            min_h: 10,
+            row_y: None,
+        };
+        // min_w=20 at 50% -> need 40 cols. min_h=10 at 50% -> need 20 rows.
+        assert!(check_terminal_size(&[&layout], 80, 40).is_none());
+    }
+
+    #[test]
+    fn check_terminal_size_too_small() {
+        let layout = ZoneLayout {
+            id: "a".to_string(),
+            rect: ComputedRect::Percent { pct_x: 0, pct_y: 0, pct_w: 50, pct_h: 50 },
+            min_w: 20,
+            min_h: 10,
+            row_y: None,
+        };
+        // need 40 cols, only have 30
+        let result = check_terminal_size(&[&layout], 30, 40);
+        assert!(result.is_some());
+        let (req_w, _) = result.unwrap();
+        assert_eq!(req_w, 40);
+    }
+
+    #[test]
+    fn check_terminal_size_fixed_layout() {
+        let layout = ZoneLayout {
+            id: "a".to_string(),
+            rect: ComputedRect::Fixed { x: 0, y: 0, w: 100, h: 20 },
+            min_w: 40,
+            min_h: 10,
+            row_y: Some(0),
+        };
+        // Fixed zones: required_h = y + h = 20
+        let result = check_terminal_size(&[&layout], 50, 15);
+        assert!(result.is_some());
+    }
+}
+
 pub fn check_terminal_size(
     zones: &[&ZoneLayout],
     terminal_width: u16,
