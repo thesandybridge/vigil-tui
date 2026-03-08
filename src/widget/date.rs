@@ -50,4 +50,9 @@ impl super::Widget for DateWidget {
 
         frame.render_widget(paragraph, area);
     }
+
+    fn min_size(&self) -> (u16, u16) {
+        // "Wednesday, September 30, 2026" = ~30 chars + borders
+        (22, 3)
+    }
 }

@@ -98,6 +98,11 @@ fn render_bar<'a>(pct: f32, width: u16, filled_color: Color, empty_color: Color)
 }
 
 impl super::Widget for SystemWidget {
+    fn min_size(&self) -> (u16, u16) {
+        // cpu label + bar + blank + mem label + bar + borders
+        (20, 9)
+    }
+
     fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
         let (cpu_usage, mem_used, mem_total) = {
             let s = self.state.lock().unwrap_or_else(|e| e.into_inner());

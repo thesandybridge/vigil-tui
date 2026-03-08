@@ -2,9 +2,6 @@ use ratatui::layout::Rect;
 
 use crate::config::ZoneConfig;
 
-const DEFAULT_MIN_WIDTH: u16 = 20;
-const DEFAULT_MIN_HEIGHT: u16 = 5;
-
 pub struct ZoneLayout {
     pub id: String,
     pub pct_x: u16,
@@ -16,15 +13,17 @@ pub struct ZoneLayout {
 }
 
 impl ZoneLayout {
-    pub fn from_config(zone: &ZoneConfig) -> Self {
+    /// Build a ZoneLayout from config + the widget's own min_size.
+    /// Config min_width/min_height override the widget's defaults.
+    pub fn from_config(zone: &ZoneConfig, widget_min: (u16, u16)) -> Self {
         Self {
             id: zone.id.clone(),
             pct_x: zone.x,
             pct_y: zone.y,
             pct_w: zone.width,
             pct_h: zone.height,
-            min_w: zone.min_width.unwrap_or(DEFAULT_MIN_WIDTH),
-            min_h: zone.min_height.unwrap_or(DEFAULT_MIN_HEIGHT),
+            min_w: zone.min_width.unwrap_or(widget_min.0),
+            min_h: zone.min_height.unwrap_or(widget_min.1),
         }
     }
 

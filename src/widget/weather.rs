@@ -189,6 +189,11 @@ fn weather_description(code: u8) -> &'static str {
 }
 
 impl super::Widget for WeatherWidget {
+    fn min_size(&self) -> (u16, u16) {
+        // temp line + description + wind + humidity + borders
+        (20, 9)
+    }
+
     fn draw(&self, frame: &mut Frame, area: Rect, theme: &Theme) {
         let snapshot = { self.state.lock().unwrap_or_else(|e| e.into_inner()).clone() };
 

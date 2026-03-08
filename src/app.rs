@@ -34,9 +34,9 @@ impl App {
         let mut update_tasks = Vec::new();
 
         for zone_cfg in &config.zones {
-            let layout = ZoneLayout::from_config(zone_cfg);
             let (widget, handle) =
                 widget::create_widget(&zone_cfg.widget, zone_cfg.config.as_ref())?;
+            let layout = ZoneLayout::from_config(zone_cfg, widget.min_size());
             if let Some(h) = handle {
                 update_tasks.push(h);
             }

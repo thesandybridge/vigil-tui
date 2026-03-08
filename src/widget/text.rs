@@ -79,4 +79,9 @@ impl super::Widget for TextWidget {
 
         frame.render_widget(paragraph, area);
     }
+
+    fn min_size(&self) -> (u16, u16) {
+        let lines = self.content.lines().count().max(1) as u16;
+        (12, lines + 2) // content lines + borders
+    }
 }

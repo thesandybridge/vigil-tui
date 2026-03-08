@@ -82,4 +82,10 @@ impl super::Widget for ClockWidget {
 
         frame.render_widget(paragraph, area);
     }
+
+    fn min_size(&self) -> (u16, u16) {
+        // 5 digits * 5w + 4 gaps + 2 border = ~33 wide
+        // 5 digit lines + 2 detail lines + 2 border + 2 padding = ~11 tall
+        (35, 11)
+    }
 }

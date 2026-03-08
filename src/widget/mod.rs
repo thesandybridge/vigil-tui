@@ -17,6 +17,12 @@ pub trait Widget: Send + Sync {
     fn error(&self) -> Option<String> {
         None
     }
+    /// Minimum (width, height) in characters this widget needs to render usefully.
+    /// Includes border (2 chars each axis). Layout engine uses this to compute
+    /// required terminal size.
+    fn min_size(&self) -> (u16, u16) {
+        (12, 5)
+    }
 }
 
 pub type CreateResult = (Box<dyn Widget>, Option<JoinHandle<()>>);
